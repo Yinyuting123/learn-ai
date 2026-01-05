@@ -1,11 +1,16 @@
 import json
 import httpx
+import os
+from dotenv import load_dotenv
 from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 # 初始化 MCP 服务器
 mcp = FastMCP("WeatherServer")
 
+
+# 加载 .env 文件，确保 API Key 受到保护
+load_dotenv()
 
 # OpenWeather API 配置
 OPENWEATHER_API_BASE = "https://api.weatherapi.com/v1/current.json"
@@ -20,7 +25,7 @@ async def fetch_weather(city: str) -> dict[str, Any] | None:
     """
     params = {
         "q": city,
-        "key": API_KEY,
+        "key": os.getenv("WEATHER_API_KEY"),
         "lang": "zh"
     }
     headers = {"User-Agent": USER_AGENT,
