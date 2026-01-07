@@ -85,22 +85,20 @@ class MCPClient:
         content = response.choices[0]
         if content.finish_reason == "tool_calls":
             # 如何是需要使用工具，就解析工具
-            tool_call = content.message.tool_calls[0]
-            tool_name = tool_call.function.name
-            tool_args = json.loads(tool_call.function.arguments)
-            
-            # 执行工具
-            result = await self.session.call_tool(tool_name, tool_args)
-            print(f"\n\n[Calling tool {tool_name} with args {tool_args}]\n\n")
-            
-            # 将模型返回的调用哪个工具数据和工具执行完成后的数据都存入messages中
             messages.append(content.message.model_dump())
-            messages.append({
-                "role": "tool",
-                "content": result.content[0].text,
-                "tool_call_id": tool_call.id,
-            })
-            
+            for tool_call in content.message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
+                # 执行工具
+                result = await self.session.call_tool(tool_name, tool_args)
+                print(f"\n\n[Calling tool {tool_name} with args {tool_args}]\n\n")
+
+                # 将模型返回的调用哪个工具数据和工具执行完成后的数据都存入messages中
+                messages.append({
+                    "role": "tool",
+                    "content": result.content[0].text,
+                    "tool_call_id": tool_call.id,
+                })
             # 将上面的结果再返回给大模型用于生产最终的结果
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -131,13 +129,10 @@ class MCPClient:
         await self.exit_stack.aclose() # 异步地关闭所有在 exit_stack 中注册的资源（包括 MCP 会话）
 
 async def main():
-    if len(sys.argv) < 2:
-        print("Usage: python client.py <path_to_server_script>")
-        sys.exit(1)
-
+    server_script_path = sys.argv[1] if len(sys.argv) >= 2 else os.path.join(os.path.dirname(__file__), "server.py")
     client = MCPClient()
     try:
-        await client.connect_to_server(sys.argv[1])
+        await client.connect_to_server(server_script_path)
         await client.chat_loop()
     finally:
         await client.cleanup()
